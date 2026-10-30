@@ -24,4 +24,7 @@ return [
     'the heading “{text}” is an H{level}, but there is no H2 above it. Add a title above it.' => 'de kop “{text}” is een H{level}, maar er staat geen H2 boven. Voeg er een titel boven toe.',
     'Switch off “{label}” to only show the title to screen readers.' => 'Zet “{label}” uit om de titel alleen aan schermlezers te tonen.',
     'Field “{field}”' => 'Veld “{field}”',
+    'the cards are H3 headings, but there is no H2 above them. Give this column a title.' => 'de kaarten zijn H3-koppen, maar er staat geen H2 boven. Geef deze kolom een titel.',
+    'the cards are H3 headings, but there is no H2 above them. Give this block a title.' => 'de kaarten zijn H3-koppen, maar er staat geen H2 boven. Geef dit blok een titel.',
+    'the cards are H3 headings, but there is no H2 above them. Add a title above them.' => 'de kaarten zijn H3-koppen, maar er staat geen H2 boven. Voeg er een titel boven toe.',
 ];

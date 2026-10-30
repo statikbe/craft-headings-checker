@@ -27,7 +27,11 @@ class OutlineController extends Controller
             ->provisionalDrafts(null)
             ->status(null)
             ->one();
-        if ($entry === null || !Craft::$app->getElements()->canView($entry)) {
+        if (
+            $entry === null
+            || !Craft::$app->getElements()->canView($entry)
+            || (Craft::$app->getIsMultiSite() && !Craft::$app->getUser()->checkPermission('editSite:' . $entry->getSite()->uid))
+        ) {
             throw new ForbiddenHttpException('Not allowed to view this entry.');
         }
 

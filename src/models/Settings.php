@@ -2,6 +2,7 @@
 
 namespace statikbe\headingschecker\models;
 
+use Craft;
 use craft\base\Model;
 
 /**
@@ -76,9 +77,29 @@ class Settings extends Model
     protected function defineRules(): array
     {
         return [
+            [['mode'], 'in', 'range' => ['warn', 'block', false], 'strict' => true],
             [['fields', 'titleFields', 'textFields', 'cardTypes', 'rowHeadings'], 'safe'],
             [['outline', 'levelBadges'], 'boolean'],
         ];
+    }
+
+    /**
+     * The mode the check runs in: 'warn', 'block' or false. Case doesn't matter; an unknown mode is logged and counts as
+     * 'warn', so a typo doesn't switch the check off.
+     *
+     * @return 'warn'|'block'|false
+     */
+    public function checkMode(): string|false
+    {
+        if ($this->mode === false) {
+            return false;
+        }
+        $mode = strtolower(trim($this->mode));
+        if (!in_array($mode, ['warn', 'block'], true)) {
+            Craft::warning("Unknown mode '$this->mode' in config/headings-checker.php: use 'warn', 'block' or false. Checking in 'warn' mode.", __METHOD__);
+            return 'warn';
+        }
+        return $mode;
     }
 
     /**

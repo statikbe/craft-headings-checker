@@ -17,21 +17,23 @@ class Checker extends Component
     private array $cellErrors = [];
 
     /**
-     * After an entry is validated (Entry::EVENT_AFTER_VALIDATE). Only in the live scenario (publishing): not for drafts,
-     * autosaves, propagation to other sites, resaving, revisions or console commands.
+     * After an entry is validated (Entry::EVENT_AFTER_VALIDATE). Only for pages (entries in a section), in the live scenario
+     * (publishing): not for drafts, autosaves, propagation to other sites, resaving, revisions or console commands.
      */
     public function check(Entry $entry): void
     {
-        // A column of a page that wasn't saved: the control panel validates its card again to show it, which clears its errors
+        // A block or column of a page that wasn't saved: the control panel validates its card again to show it, which clears
+        // its errors
         if ($entry->uid !== null && isset($this->cellErrors[$entry->uid])) {
             foreach ($this->cellErrors[$entry->uid] as $error) {
                 $entry->addError($error['field'], $error['message']);
             }
         }
 
-        $mode = HeadingsChecker::getInstance()->getSettings()->mode;
+        $mode = HeadingsChecker::getInstance()->getSettings()->checkMode();
         if (
-            !in_array($mode, ['warn', 'block'], true)
+            $mode === false
+            || $entry->getSection() === null
             || $entry->getScenario() !== Entry::SCENARIO_LIVE
             || $entry->propagating
             || $entry->resaving
@@ -42,65 +44,69 @@ class Checker extends Component
         }
 
         $outline = HeadingsChecker::getInstance()->getOutline();
-        $text = $outline->textOutline($entry);
-        $warnings = $text['issues'];
-        if ($mode === 'block') {
-            foreach ($text['fields'] as $i => $field) {
-                $entry->addError($field, $text['issues'][$i]);
-            }
+        $result = $outline->pageOutline($entry, true);
+        if (!$result['issues']) {
+            return;
         }
 
-        foreach ($outline->builderFields($entry) as $field) {
-            $result = $outline->outline($entry, $field);
-            if (!$result['issues']) {
-                continue;
+        if ($mode === 'warn') {
+            if (!$entry->hasErrors()) {
+                Craft::$app->getSession()->setError(Craft::t('headings-checker', 'Check the heading levels: {issues}', [
+                    'issues' => implode(' ', array_map(fn(array $issue) => $outline->message($issue), $result['issues'])),
+                ]));
             }
-            if ($mode === 'warn') {
-                array_push($warnings, ...$result['issues']);
-                continue;
-            }
+            return;
+        }
 
-            // The control panel draws the rows from the builder's cached result after a failed save, or queries them again
-            // when they weren't posted (unchanged): cache the rows, so it draws the ones that get the errors
+        // The control panel draws the rows from the builder's cached result after a failed save, or queries them again when
+        // they weren't posted (unchanged): cache the rows, so it draws the ones that get the errors
+        $cached = false;
+        foreach (array_unique(array_column(array_filter($result['places'], fn(array $place) => $place['row'] !== null), 'field')) as $field) {
             $value = $entry->getFieldValue($field);
             if ($value instanceof ElementQueryInterface && $value->getCachedResult() === null) {
                 $value->setCachedResult((clone $value)->drafts(null)->savedDraftsOnly()->status(null)->limit(null)->all());
-                $result = $outline->outline($entry, $field);
-            }
-            foreach ($result['places'] as $i => $place) {
-                $this->addIssueError($entry, $field, $place, $result['issues'][$i]);
+                $cached = true;
             }
         }
+        if ($cached) {
+            $result = $outline->pageOutline($entry, true);
+        }
 
-        if ($mode === 'warn' && $warnings && !$entry->hasErrors()) {
-            Craft::$app->getSession()->setError(Craft::t('headings-checker', 'Check the heading levels: {issues}', [
-                'issues' => implode(' ', $warnings),
-            ]));
+        foreach ($result['places'] as $i => $place) {
+            // Craft renders validation errors as Markdown
+            $this->addIssueError($entry, $place, $outline->message($result['issues'][$i], true));
         }
     }
 
     /**
      * Puts an issue where it is, so the control panel marks it as Craft does for its own errors:
+     * - a text field of the page: on that field;
      * - a Trinity row: on the row's cells field (the page's error list links to it, the row shows it under its columns), and
      *   on the column, whose card turns red;
-     * - another block: on its field with the heading (blocks view shows it there);
+     * - another block: on its field with the heading (blocks view shows it there; in cards view the card turns red);
      * - without uids (an entry that was never saved): on the content builder field.
      *
-     * @param array{row: Entry, cell: Entry, isRow: bool, field: string} $place
+     * @param array{field: string, row: Entry|null, cell: Entry|null, isRow: bool, cellField: string|null} $place
      */
-    private function addIssueError(Entry $page, string $field, array $place, string $message): void
+    private function addIssueError(Entry $page, array $place, string $message): void
     {
+        $field = $place['field'];
         $row = $place['row'];
         $cell = $place['cell'];
+        $cellField = $place['cellField'] ?? 'title';
         $rows = HeadingsChecker::getInstance()->getOutline()->rows();
-        if ($row->uid === null || ($place['isRow'] && ($cell->uid === null || $rows === null))) {
+        if ($row === null || $row->uid === null || ($place['isRow'] && ($cell === null || $cell->uid === null || $rows === null))) {
             $page->addError($field, $message);
             return;
         }
 
         if (!$place['isRow']) {
-            $row->addError($place['field'], $message);
-            $page->addError(sprintf('%s[%s].%s', $field, $row->uid, $place['field']), $message);
+            $row->addError($cellField, $message);
+            $page->addError(sprintf('%s[%s].%s', $field, $row->uid, $cellField), $message);
+            $this->cellErrors[$row->uid][] = ['field' => $cellField, 'message' => $message];
+            if ($row->id) {
+                $page->addInvalidNestedElementIds([$row->id]);
+            }
             return;
         }
 
@@ -108,8 +114,8 @@ class Checker extends Component
         $page->addError(sprintf('%s[%s].%s', $field, $row->uid, $cellsField), $message);
         $row->addError($cellsField, $message);
         // The row needs an error on one of its columns, or the control panel doesn't validate the cards again
-        $row->addError(sprintf('%s[%s].%s', $cellsField, $cell->uid, $place['field']), $message);
-        $cell->addError($place['field'], $message);
-        $this->cellErrors[$cell->uid][] = ['field' => $place['field'], 'message' => $message];
+        $row->addError(sprintf('%s[%s].%s', $cellsField, $cell->uid, $cellField), $message);
+        $cell->addError($cellField, $message);
+        $this->cellErrors[$cell->uid][] = ['field' => $cellField, 'message' => $message];
     }
 }

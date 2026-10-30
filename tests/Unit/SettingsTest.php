@@ -30,3 +30,9 @@ it('uses the text fields of the entry type, else the ones for every type', funct
         ->and($settings->textFieldsFor('page'))->toBe(['intro'])
         ->and((new Settings())->textFieldsFor('page'))->toBe([]);
 });
+
+it('reads the mode whatever its case', function() {
+    expect((new Settings(['mode' => 'Block']))->checkMode())->toBe('block')
+        ->and((new Settings(['mode' => 'warn']))->checkMode())->toBe('warn')
+        ->and((new Settings(['mode' => false]))->checkMode())->toBeFalse();
+});

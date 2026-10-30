@@ -9,7 +9,7 @@ use statikbe\headingschecker\HeadingsChecker;
 
 /**
  * Dashboard widget: the pages whose content builder skips a heading level, with a link to edit each one. The list is cached
- * and updated when a page is saved or deleted. Each user only sees the pages in sections they may edit.
+ * and updated when a page is saved or deleted. Each user only sees the pages they may edit.
  */
 class HeadingIssues extends Widget
 {
@@ -61,7 +61,8 @@ class HeadingIssues extends Widget
     }
 
     /**
-     * Only the pages in sections the user may edit (an admin sees every page).
+     * Only the pages that still exist and that the user may edit: the site, and the entry (their own, or other authors' with
+     * "Edit other authors' entries"). An admin sees every page.
      *
      * @param array<array{entryId: int, siteId: int, title: string, url: string, issues: string[]}> $items
      * @return array<array{entryId: int, siteId: int, title: string, url: string, issues: string[]}>
@@ -69,25 +70,33 @@ class HeadingIssues extends Widget
     private function editable(array $items): array
     {
         $user = Craft::$app->getUser()->getIdentity();
-        if ($user === null || $user->admin || !$items) {
-            return $items;
-        }
-        $sections = [];
-        foreach (Craft::$app->getEntries()->getAllSections() as $section) {
-            if ($user->can("saveEntries:$section->uid") || $user->can("savePeerEntries:$section->uid")) {
-                $sections[] = $section->id;
-            }
-        }
-        if (!$sections) {
+        if ($user === null || !$items) {
             return [];
         }
-        $ids = array_flip(Entry::find()
+        $entries = [];
+        $query = Entry::find()
             ->id(array_values(array_unique(array_column($items, 'entryId'))))
-            ->sectionId($sections)
-            ->site('*')
-            ->unique()
-            ->status(null)
-            ->ids());
-        return array_values(array_filter($items, fn(array $item) => isset($ids[$item['entryId']])));
+            ->siteId(array_values(array_unique(array_column($items, 'siteId'))))
+            ->status(null);
+        foreach ($query->each() as $entry) {
+            /** @var Entry $entry */
+            $entries[$entry->id . '-' . $entry->siteId] = $entry;
+        }
+
+        $elements = Craft::$app->getElements();
+        $multiSite = Craft::$app->getIsMultiSite();
+        return array_values(array_filter($items, function(array $item) use ($entries, $elements, $user, $multiSite) {
+            $entry = $entries[$item['entryId'] . '-' . $item['siteId']] ?? null;
+            if ($entry === null) {
+                return false;
+            }
+            if ($user->admin) {
+                return true;
+            }
+            if ($multiSite && !$user->can('editSite:' . $entry->getSite()->uid)) {
+                return false;
+            }
+            return $elements->canSave($entry, $user);
+        }));
     }
 }

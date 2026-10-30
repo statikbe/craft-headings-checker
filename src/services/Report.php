@@ -65,24 +65,43 @@ class Report extends Component
             return;
         }
 
-        if (!$this->pending) {
-            Craft::$app->onAfterRequest(fn() => $this->refreshPending());
-        }
-        $this->pending[$this->key($page)] = [(int)$page->id, (int)$page->siteId];
+        $this->queue((int)$page->id, (int)$page->siteId);
     }
 
     /**
-     * Removes a deleted page from the report.
+     * Updates the report for a page in every site, e.g. after it was restored from the trash.
      */
-    public function forget(Entry $entry): void
+    public function refreshAllSites(Entry $entry): void
+    {
+        if ($entry->getSection() === null || $entry->getIsDraft() || $entry->getIsRevision()) {
+            return;
+        }
+        foreach ($entry->getSupportedSites() as $site) {
+            $this->queue((int)$entry->id, (int)(is_array($site) ? $site['siteId'] : $site));
+        }
+    }
+
+    private function queue(int $id, int $siteId): void
+    {
+        // Add it before registering the callback: after the request it runs right away
+        $first = !$this->pending;
+        $this->pending["$id-$siteId"] = [$id, $siteId];
+        if ($first) {
+            Craft::$app->onAfterRequest(fn() => $this->refreshPending());
+        }
+    }
+
+    /**
+     * Removes a deleted page from the report: in every site, or in one (deleted for a site).
+     */
+    public function forget(Entry $entry, ?int $siteId = null): void
     {
         $cache = Craft::$app->getCache();
         $report = $cache->get($this->cacheKey());
-        if (!is_array($report) || !isset($report[$this->key($entry)])) {
+        if (!is_array($report)) {
             return;
         }
-        // Deleting removes the entry in every site
-        $report = array_filter($report, fn(array $item) => $item['entryId'] !== $entry->id);
+        $report = array_filter($report, fn(array $item) => $item['entryId'] !== (int)$entry->id || ($siteId !== null && $item['siteId'] !== $siteId));
         $cache->set($this->cacheKey(), $report, 0);
     }
 

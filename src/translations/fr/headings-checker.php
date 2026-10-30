@@ -24,4 +24,7 @@ return [
     'the heading “{text}” is an H{level}, but there is no H2 above it. Add a title above it.' => 'le titre « {text} » est un H{level}, mais il n\'y a pas de H2 au-dessus. Ajoutez un titre au-dessus.',
     'Switch off “{label}” to only show the title to screen readers.' => 'Désactivez « {label} » pour ne montrer le titre qu\'aux lecteurs d\'écran.',
     'Field “{field}”' => 'Champ « {field} »',
+    'the cards are H3 headings, but there is no H2 above them. Give this column a title.' => 'les cartes sont des titres H3, mais il n\'y a pas de H2 au-dessus. Donnez un titre à cette colonne.',
+    'the cards are H3 headings, but there is no H2 above them. Give this block a title.' => 'les cartes sont des titres H3, mais il n\'y a pas de H2 au-dessus. Donnez un titre à ce bloc.',
+    'the cards are H3 headings, but there is no H2 above them. Add a title above them.' => 'les cartes sont des titres H3, mais il n\'y a pas de H2 au-dessus. Ajoutez un titre au-dessus.',
 ];

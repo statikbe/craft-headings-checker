@@ -43,8 +43,11 @@ it reads itself.
 | Headings in rich text fields | the level the editor picked | read from the content, also in nested entries (e.g. FAQ answers) |
 | Headings in rich text fields of the entry itself | the level the editor picked, under the h1 | `textFields`: e.g. `description` |
 
-A heading may go at most one level deeper than the heading above it, counting the titles, and only the page has an h1. Blocks
-and columns are read in order; disabled ones are skipped, as are fields that a field layout condition hides.
+A heading may go at most one level deeper than the heading above it, counting the titles, and only the page has an h1. The
+page is read in one pass, in order: its text fields, then each content builder, so a heading goes on from the one above it,
+also when that one is in another field. Blocks and columns are read in order; disabled ones are skipped (but counted in the
+row numbers of the messages, as the editor sees them), as are fields that a field layout condition hides. Cards that still
+have no h2 above them (no title before them and no hidden h2 from `rowHeadings`) are an issue too.
 
 ## Configuration
 
@@ -55,7 +58,7 @@ Copy this to `config/headings-checker.php` and change what your templates need. 
 
 return [
     // 'block': a heading that skips a level stops the entry from being published, shown on the row, block and field.
-    // 'warn': it's saved, with a warning. false: no check.
+    // 'warn': it's saved, with a warning. false: no check. An unknown value is logged and counts as 'warn'.
     'mode' => 'warn',
 
     // The Matrix fields that are content builders
@@ -113,8 +116,9 @@ shown on the block's field in the blocks view.
 ### Text fields of the entry
 
 The rich text fields in `textFields` are read in order, right under the h1, before the content builders: the first heading
-must be an h2. An issue is shown on the field. Entries with text fields but without a content builder are checked as well,
-with the outline in their sidebar.
+must be an h2, and the content builder goes on from their last heading. An issue is shown on the field. Entries with text
+fields but without a content builder are checked as well, with the outline in their sidebar. Only pages (entries in a
+section) are read this way: a block or column with a field of the same handle isn't.
 
 ### Trinity rows
 

@@ -8,10 +8,12 @@ use craft\base\Model;
 use craft\base\Plugin;
 use craft\elements\Entry;
 use craft\events\DefineHtmlEvent;
+use craft\events\ElementEvent;
 use craft\events\ModelEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterTemplateRootsEvent;
 use craft\services\Dashboard;
+use craft\services\Elements;
 use craft\web\twig\variables\CraftVariable;
 use craft\web\View;
 use statikbe\headingschecker\models\Settings;
@@ -73,6 +75,17 @@ class HeadingsChecker extends Plugin
                 $this->getReport()->forget($entry);
             }
         });
+        Event::on(Elements::class, Elements::EVENT_AFTER_DELETE_FOR_SITE, function(ElementEvent $event) {
+            $entry = $event->element;
+            if ($entry instanceof Entry && $entry->getSection() !== null) {
+                $this->getReport()->forget($entry, $entry->siteId);
+            }
+        });
+        Event::on(Entry::class, Element::EVENT_AFTER_RESTORE, function(Event $event) {
+            /** @var Entry $entry */
+            $entry = $event->sender;
+            $this->getReport()->refreshAllSites($entry);
+        });
 
         Event::on(Dashboard::class, Dashboard::EVENT_REGISTER_WIDGET_TYPES, function(RegisterComponentTypesEvent $event) {
             $event->types[] = HeadingIssues::class;
@@ -119,7 +132,7 @@ class HeadingsChecker extends Plugin
      */
     public function sidebarHtml(Entry $entry): string
     {
-        if (!$this->getSettings()->outline || $entry->getIsRevision()) {
+        if (!$this->getSettings()->outline || $entry->getIsRevision() || $entry->getSection() === null) {
             return '';
         }
         $tree = $this->getOutline()->pageTree($entry);
