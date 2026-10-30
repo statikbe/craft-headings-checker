@@ -1,0 +1,29 @@
+{# Heading outline in an entry's sidebar (HeadingsChecker::sidebarHtml(), settings → outline).
+   Collapsible; the state is remembered in the browser (web/assets/cp/dist/outline.js). #}
+{% set issues = tree|filter(h => h.issue)|length %}
+<fieldset id="hc-outline" class="hc-outline" data-site-id="{{ entry.siteId }}">
+    <legend class="h6 hc-outline__legend">
+        <button type="button" class="hc-outline__toggle" aria-expanded="true" aria-controls="hc-outline-body">
+            <span class="hc-outline__chevron" aria-hidden="true"></span>
+            <span>{{ 'Heading outline'|t('headings-checker') }}</span>
+            <span class="hc-outline__summary{{ issues ? ' hc-outline__summary--issues' }}" data-outline-summary>
+                {%- if issues -%}
+                    {{ '{count, plural, =1{# issue} other{# issues}}'|t('headings-checker', { count: issues }) }}
+                {%- endif -%}
+            </span>
+        </button>
+    </legend>
+    <div id="hc-outline-body" class="meta hc-outline__body">
+        {% include 'headings-checker/_outline/list' %}
+    </div>
+</fieldset>
+<script>
+    {# Collapse before the page paints, so a collapsed panel doesn't flash open #}
+    try {
+        if (localStorage.getItem('headingsChecker.outline.collapsed') === '1') {
+            const panel = document.getElementById('hc-outline');
+            panel.classList.add('is-collapsed');
+            panel.querySelector('.hc-outline__toggle').setAttribute('aria-expanded', 'false');
+        }
+    } catch (e) {}
+</script>

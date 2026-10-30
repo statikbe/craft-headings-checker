@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'Row {row}, column {column} ({type})' => 'Rangée {row}, colonne {column} ({type})',
+    'Block {row} ({type})' => 'Bloc {row} ({type})',
+    'the heading “{text}” is an H1, but the page title is the only H1.' => 'le titre « {text} » est un H1, mais le titre de la page est le seul H1.',
+    'the heading “{text}” is an H{level}, but the heading above it is an H{above}. Make it an H{next}.' => 'le titre « {text} » est un H{level}, mais le titre au-dessus est un H{above}. Faites-en un H{next}.',
+    'Check the heading levels: {issues}' => 'Vérifiez les niveaux de titre : {issues}',
+    'Heading issues' => 'Problèmes de titres',
+    'No pages with heading issues.' => 'Aucune page avec des problèmes de titres.',
+    '{count, plural, =1{# page has} other{# pages have}} heading issues.' => '{count, plural, =1{# page a} other{# pages ont}} des problèmes de titres.',
+    '{count, plural, =1{# issue} other{# issues}}' => '{count, plural, =1{# problème} other{# problèmes}}',
+    'And {count} more. Run {command} for the full list.' => 'Et {count} de plus. Lancez {command} pour la liste complète.',
+    'Number of pages' => 'Nombre de pages',
+    'The other pages are only counted.' => 'Les autres pages sont seulement comptées.',
+    'Heading outline' => 'Structure des titres',
+    'Cards: {type}' => 'Cartes : {type}',
+    'hidden' => 'masqué',
+    'Only screen readers read this heading.' => 'Seuls les lecteurs d’écran lisent ce titre.',
+    'This heading skips a level.' => 'Ce titre saute un niveau.',
+    'No headings in the content yet.' => 'Pas encore de titres dans le contenu.',
+    'the heading “{text}” is an H{level}, but there is no H2 above it. Give this column a title.' => 'le titre « {text} » est un H{level}, mais il n\'y a pas de H2 au-dessus. Donnez un titre à cette colonne.',
+    'the heading “{text}” is an H{level}, but there is no H2 above it. Give this block a title.' => 'le titre « {text} » est un H{level}, mais il n\'y a pas de H2 au-dessus. Donnez un titre à ce bloc.',
+    'the heading “{text}” is an H{level}, but there is no H2 above it. Add a title above it.' => 'le titre « {text} » est un H{level}, mais il n\'y a pas de H2 au-dessus. Ajoutez un titre au-dessus.',
+    'Switch off “{label}” to only show the title to screen readers.' => 'Désactivez « {label} » pour ne montrer le titre qu\'aux lecteurs d\'écran.',
+];

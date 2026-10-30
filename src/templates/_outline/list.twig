@@ -1,0 +1,25 @@
+{# The headings of the page in order (Outline::pageTree()): level, text, hidden (only for screen readers), issue (skips a level) #}
+{% set issues = tree|filter(h => h.issue)|length %}
+<ol class="hc-outline__list" data-outline-issues="{{ issues }}">
+    {% for heading in tree %}
+        <li class="hc-outline__item{{ heading.issue ? ' hc-outline__item--issue' }}{{ heading.kind == 'cards' ? ' hc-outline__item--cards' }}" style="--hc-outline-level: {{ heading.level }}">
+            <span class="hc-outline__level">H{{ heading.level }}</span>
+            <span class="hc-outline__text" title="{{ heading.kind == 'cards' ? '' : heading.text }}">
+                {%- if heading.kind == 'cards' -%}
+                    {{ 'Cards: {type}'|t('headings-checker', { type: heading.text }) }}
+                {%- else -%}
+                    {{ heading.text|length ? heading.text : '–' }}
+                {%- endif -%}
+            </span>
+            {% if heading.hidden %}
+                <span class="hc-outline__flag" title="{{ 'Only screen readers read this heading.'|t('headings-checker') }}">{{ 'hidden'|t('headings-checker') }}</span>
+            {% endif %}
+            {% if heading.issue %}
+                <span class="hc-outline__flag hc-outline__flag--issue" data-icon="alert" title="{{ 'This heading skips a level.'|t('headings-checker') }}" aria-label="{{ 'This heading skips a level.'|t('headings-checker') }}"></span>
+            {% endif %}
+        </li>
+    {% endfor %}
+</ol>
+{% if tree|length == 1 %}
+    <p class="light hc-outline__empty">{{ 'No headings in the content yet.'|t('headings-checker') }}</p>
+{% endif %}

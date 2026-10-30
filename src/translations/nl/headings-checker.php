@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'Row {row}, column {column} ({type})' => 'Rij {row}, kolom {column} ({type})',
+    'Block {row} ({type})' => 'Blok {row} ({type})',
+    'the heading “{text}” is an H1, but the page title is the only H1.' => 'de kop “{text}” is een H1, maar de paginatitel is de enige H1.',
+    'the heading “{text}” is an H{level}, but the heading above it is an H{above}. Make it an H{next}.' => 'de kop “{text}” is een H{level}, maar de kop erboven is een H{above}. Maak er een H{next} van.',
+    'Check the heading levels: {issues}' => 'Controleer de kopniveaus: {issues}',
+    'Heading issues' => 'Problemen met koppen',
+    'No pages with heading issues.' => 'Geen pagina\'s met problemen in de koppen.',
+    '{count, plural, =1{# page has} other{# pages have}} heading issues.' => '{count, plural, =1{# pagina heeft} other{# pagina\'s hebben}} problemen in de koppen.',
+    '{count, plural, =1{# issue} other{# issues}}' => '{count, plural, =1{# probleem} other{# problemen}}',
+    'And {count} more. Run {command} for the full list.' => 'En nog {count}. Voer {command} uit voor de volledige lijst.',
+    'Number of pages' => 'Aantal pagina\'s',
+    'The other pages are only counted.' => 'De andere pagina\'s worden alleen geteld.',
+    'Heading outline' => 'Structuur van de koppen',
+    'Cards: {type}' => 'Kaarten: {type}',
+    'hidden' => 'verborgen',
+    'Only screen readers read this heading.' => 'Alleen schermlezers lezen deze kop.',
+    'This heading skips a level.' => 'Deze kop slaat een niveau over.',
+    'No headings in the content yet.' => 'Nog geen koppen in de inhoud.',
+    'the heading “{text}” is an H{level}, but there is no H2 above it. Give this column a title.' => 'de kop “{text}” is een H{level}, maar er staat geen H2 boven. Geef deze kolom een titel.',
+    'the heading “{text}” is an H{level}, but there is no H2 above it. Give this block a title.' => 'de kop “{text}” is een H{level}, maar er staat geen H2 boven. Geef dit blok een titel.',
+    'the heading “{text}” is an H{level}, but there is no H2 above it. Add a title above it.' => 'de kop “{text}” is een H{level}, maar er staat geen H2 boven. Voeg er een titel boven toe.',
+    'Switch off “{label}” to only show the title to screen readers.' => 'Zet “{label}” uit om de titel alleen aan schermlezers te tonen.',
+];

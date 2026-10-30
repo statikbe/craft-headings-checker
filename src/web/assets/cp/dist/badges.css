@@ -1,0 +1,27 @@
+/*
+ * The heading level in front of every heading in rich text fields (CKEditor, Redactor) in the control panel, so editors see
+ * which level they picked (settings → levelBadges).
+ */
+:is(.ck-content, .redactor-styles) :is(h1, h2, h3, h4, h5, h6)::before {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background-color: #e5e7eb;
+  color: #374151;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  font-style: normal;
+  line-height: 1.6;
+  letter-spacing: 0;
+  text-transform: none;
+  vertical-align: middle;
+}
+
+:is(.ck-content, .redactor-styles) h1::before { content: 'H1'; }
+:is(.ck-content, .redactor-styles) h2::before { content: 'H2'; }
+:is(.ck-content, .redactor-styles) h3::before { content: 'H3'; }
+:is(.ck-content, .redactor-styles) h4::before { content: 'H4'; }
+:is(.ck-content, .redactor-styles) h5::before { content: 'H5'; }
+:is(.ck-content, .redactor-styles) h6::before { content: 'H6'; }

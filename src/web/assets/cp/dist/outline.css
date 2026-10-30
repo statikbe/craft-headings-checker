@@ -1,0 +1,117 @@
+/* Heading outline in the entry sidebar (templates/_outline, outline.js) */
+.hc-outline__legend {
+  width: 100%;
+}
+
+.hc-outline__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.hc-outline__chevron::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  margin-bottom: 3px;
+  transition: transform 0.15s;
+}
+
+.hc-outline.is-collapsed .hc-outline__chevron::before {
+  transform: rotate(-45deg);
+  margin-bottom: 0;
+}
+
+.hc-outline__summary {
+  margin-inline-start: auto;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+.hc-outline__summary--issues {
+  color: var(--error-color, #cf1124);
+}
+
+.hc-outline.is-collapsed .hc-outline__body {
+  display: none;
+}
+
+.hc-outline__body {
+  padding: 12px var(--m, 14px);
+}
+
+.hc-outline__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.hc-outline__item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding-inline-start: calc((var(--hc-outline-level) - 1) * 14px);
+  font-size: 13px;
+  line-height: 1.4;
+  min-width: 0;
+}
+
+.hc-outline__level {
+  flex: none;
+  padding: 0 4px;
+  border-radius: 3px;
+  background-color: var(--gray-100, #e5e7eb);
+  color: var(--gray-700, #374151);
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.hc-outline__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hc-outline__item--cards .hc-outline__text {
+  font-style: italic;
+  color: var(--light-text-color, #606d7b);
+}
+
+.hc-outline__flag {
+  flex: none;
+  font-size: 11px;
+  color: var(--light-text-color, #606d7b);
+}
+
+.hc-outline__item--issue .hc-outline__level,
+.hc-outline__item--issue .hc-outline__text,
+.hc-outline__flag--issue {
+  color: var(--error-color, #cf1124);
+}
+
+.hc-outline__item--issue .hc-outline__level {
+  background-color: #fde8ea;
+}
+
+.hc-outline__empty {
+  margin: 8px 0 0;
+  font-size: 12px;
+}

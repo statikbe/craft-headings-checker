@@ -1,0 +1,74 @@
+{
+  "name": "statikbe/craft-headings-checker",
+  "description": "Checks the heading order of Craft CMS content builders when an entry is published, marks the rows and blocks that skip a level, and shows the page's heading outline in the entry sidebar",
+  "type": "craft-plugin",
+  "keywords": [
+    "craft",
+    "cms",
+    "craftcms",
+    "craft-plugin",
+    "headings",
+    "accessibility",
+    "a11y",
+    "seo",
+    "matrix",
+    "content-builder"
+  ],
+  "support": {
+    "docs": "https://github.com/statikbe/craft-headings-checker/blob/main/README.md",
+    "issues": "https://github.com/statikbe/craft-headings-checker/issues"
+  },
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Statik",
+      "homepage": "https://www.statik.be"
+    }
+  ],
+  "require": {
+    "php": "^8.2",
+    "craftcms/cms": "^5.6.0"
+  },
+  "suggest": {
+    "statikbe/craft-trinity": "Rows of 1–3 columns: the checker finds the rows and columns by itself"
+  },
+  "autoload": {
+    "psr-4": {
+      "statikbe\\headingschecker\\": "src/"
+    }
+  },
+  "extra": {
+    "name": "Headings Checker",
+    "handle": "headings-checker",
+    "developer": "Statik",
+    "developerUrl": "https://www.statik.be",
+    "documentationUrl": "https://github.com/statikbe/craft-headings-checker/blob/main/README.md",
+    "class": "statikbe\\headingschecker\\HeadingsChecker"
+  },
+  "config": {
+    "allow-plugins": {
+      "yiisoft/yii2-composer": true,
+      "craftcms/plugin-installer": true,
+      "pestphp/pest-plugin": true
+    }
+  },
+  "require-dev": {
+    "pestphp/pest": "^3.0",
+    "craftcms/ecs": "dev-main",
+    "craftcms/phpstan": "dev-main",
+    "phpstan/phpstan": "^2.0",
+    "statikbe/craft-trinity": "^1.3",
+    "craftcms/ckeditor": "^4.0"
+  },
+  "scripts": {
+    "check-cs": "ecs check --ansi",
+    "fix-cs": "ecs check --ansi --fix",
+    "phpstan": "phpstan --memory-limit=1G",
+    "test": "pest",
+    "ci": [
+      "@check-cs",
+      "@phpstan",
+      "@test"
+    ]
+  }
+}
