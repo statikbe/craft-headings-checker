@@ -1,9 +1,11 @@
 {# Heading outline in an entry's sidebar (HeadingsChecker::sidebarHtml(), settings → outline).
    Collapsible; the state is remembered in the browser (web/assets/cp/dist/outline.js). #}
 {% set issues = tree|filter(h => h.issue)|length %}
-<fieldset id="hc-outline" class="hc-outline" data-site-id="{{ entry.siteId }}">
+{# An entry in a slideout has a panel of its own, next to the one of the page behind it: ids are unique #}
+{% set bodyId = 'hc-outline-body-' ~ random() %}
+<fieldset class="hc-outline" data-site-id="{{ entry.siteId }}" data-element-id="{{ entry.id }}">
     <legend class="h6 hc-outline__legend">
-        <button type="button" class="hc-outline__toggle" aria-expanded="true" aria-controls="hc-outline-body">
+        <button type="button" class="hc-outline__toggle" aria-expanded="true" aria-controls="{{ bodyId }}">
             <span class="hc-outline__chevron" aria-hidden="true"></span>
             <span>{{ 'Heading outline'|t('headings-checker') }}</span>
             <span class="hc-outline__summary{{ issues ? ' hc-outline__summary--issues' }}" data-outline-summary>
@@ -13,15 +15,15 @@
             </span>
         </button>
     </legend>
-    <div id="hc-outline-body" class="meta hc-outline__body">
+    <div id="{{ bodyId }}" class="meta hc-outline__body">
         {% include 'headings-checker/_outline/list' %}
     </div>
 </fieldset>
 <script>
     {# Collapse before the page paints, so a collapsed panel doesn't flash open #}
     try {
-        if (localStorage.getItem('headingsChecker.outline.collapsed') === '1') {
-            const panel = document.getElementById('hc-outline');
+        const panel = document.currentScript?.previousElementSibling;
+        if (panel?.classList.contains('hc-outline') && localStorage.getItem('headingsChecker.outline.collapsed') === '1') {
             panel.classList.add('is-collapsed');
             panel.querySelector('.hc-outline__toggle').setAttribute('aria-expanded', 'false');
         }

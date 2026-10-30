@@ -4,48 +4,121 @@ namespace statikbe\headingschecker\services;
 
 use Craft;
 use craft\base\Component;
+use craft\db\Query;
 use craft\elements\Entry;
+use craft\helpers\Db;
+use craft\helpers\Json;
+use craft\helpers\Queue;
 use statikbe\headingschecker\HeadingsChecker;
+use statikbe\headingschecker\jobs\BuildReportJob;
 
 /**
- * The pages with heading issues, for the Heading issues dashboard widget. Kept in the cache, updated when a page is saved or
- * deleted, and built in full when the cache is empty (or by `craft headings-checker/check`).
+ * The pages with heading issues, for the Heading issues dashboard widget: one row per page and site in a table, updated when a
+ * page is saved, deleted or restored. The full list is built by a queue job (BuildReportJob) or by `craft headings-checker/check`,
+ * never in a web request: when the settings change (hash()), or when the plugin was just installed.
+ *
+ * The issues are stored as data (Outline::pageOutline() → issues) and turned into messages when they're shown, in the
+ * language of the user who reads them.
  */
 class Report extends Component
 {
+    public const TABLE = '{{%headingschecker_pages}}';
+    public const STATE_TABLE = '{{%headingschecker_state}}';
+
+    /** Seconds after which a build that stopped reporting progress is queued again */
+    private const STALLED = 900;
+
     /** @var array<string, array{0: int, 1: int}> pages to update at the end of the request */
     private array $pending = [];
 
-    /**
-     * [entryId-siteId => [entryId, siteId, title, url, issues]] of the pages in a section, every site, also disabled ones.
-     *
-     * @return array<string, array{entryId: int, siteId: int, title: string, url: string, issues: string[]}>
-     */
-    public function get(bool $rebuild = false): array
-    {
-        $cache = Craft::$app->getCache();
-        $report = $rebuild ? false : $cache->get($this->cacheKey());
-        if (is_array($report)) {
-            return $report;
-        }
+    private ?string $hash = null;
 
-        $report = [];
-        $outline = HeadingsChecker::getInstance()->getOutline();
-        $query = Entry::find()->section('*')->site('*')->status(null)->drafts(false)->revisions(false);
-        foreach ($query->each() as $entry) {
-            /** @var Entry $entry */
-            if ($issues = $outline->issues($entry)) {
-                $report[$this->key($entry)] = $this->item($entry, $issues);
+    /**
+     * Whether the list was built for the current settings. Queues a build when it wasn't and none is running.
+     */
+    public function ensureBuilt(): bool
+    {
+        $hash = $this->hash();
+        if ($this->state('builtHash') === $hash) {
+            return true;
+        }
+        $mutex = Craft::$app->getMutex();
+        if ($mutex->acquire('headings-checker.report.queue', 5)) {
+            try {
+                $heartbeat = (int)$this->state('heartbeat');
+                if ($this->state('queuedHash') !== $hash || $heartbeat < time() - self::STALLED) {
+                    $this->setState('queuedHash', $hash);
+                    $this->setState('heartbeat', (string)time());
+                    Queue::push(new BuildReportJob(['hash' => $hash]));
+                }
+            } finally {
+                $mutex->release('headings-checker.report.queue');
             }
         }
-        $cache->set($this->cacheKey(), $report, 0);
-        return $report;
+        return false;
     }
 
     /**
-     * Updates the report for a saved entry: a page, or the page a saved row, block or column is on. Only when the report is
-     * in the cache (otherwise it's built in full when it's needed). Once per page, at the end of the request, so saving a page
-     * with all its blocks checks it once, as saved.
+     * The pages with issues: [['entryId' => …, 'siteId' => …, 'issues' => [issue data, …]], …].
+     *
+     * @return array<array{entryId: int, siteId: int, issues: array<array<string, mixed>>}>
+     */
+    public function items(): array
+    {
+        $items = [];
+        foreach ((new Query())->select(['entryId', 'siteId', 'issues'])->from(self::TABLE)->all() as $row) {
+            $items[] = [
+                'entryId' => (int)$row['entryId'],
+                'siteId' => (int)$row['siteId'],
+                'issues' => Json::decodeIfJson((string)$row['issues']) ?: [],
+            ];
+        }
+        return $items;
+    }
+
+    /**
+     * Checks a page and stores the result: a row when it has issues, none when it hasn't.
+     *
+     * @return array<array<string, mixed>>|null the issues, null when it has no text fields and no content builder
+     */
+    public function checkPage(Entry $page): ?array
+    {
+        $outline = HeadingsChecker::getInstance()->getOutline()->pageOutline($page, true);
+        $issues = $outline['applies'] ? $outline['issues'] : [];
+        $this->store((int)$page->id, (int)$page->siteId, $issues);
+        return $outline['applies'] ? $issues : null;
+    }
+
+    /**
+     * Before a full build: the rows of the previous list are removed.
+     */
+    public function startBuild(): void
+    {
+        Db::delete(self::TABLE);
+        $this->heartbeat();
+    }
+
+    /**
+     * Keeps a running build from being queued again.
+     */
+    public function heartbeat(): void
+    {
+        $this->setState('heartbeat', (string)time());
+    }
+
+    /**
+     * After a full build for these settings: the list is ready, unless the settings changed in the meantime.
+     */
+    public function finishBuild(string $hash): void
+    {
+        if ($hash === $this->hash()) {
+            $this->setState('builtHash', $hash);
+        }
+    }
+
+    /**
+     * Updates the report for a saved entry: a page, or the page a saved row, block or column is on. Once per page, at the end
+     * of the request, so saving a page with all its blocks checks it once, as saved.
      */
     public function refresh(Entry $entry): void
     {
@@ -64,7 +137,6 @@ class Report extends Component
         if ($page->getSection() === null) {
             return;
         }
-
         $this->queue((int)$page->id, (int)$page->siteId);
     }
 
@@ -81,88 +153,99 @@ class Report extends Component
         }
     }
 
+    /**
+     * Removes a deleted page from the report: in every site, or in one (deleted for a site).
+     */
+    public function forget(Entry $entry, ?int $siteId = null): void
+    {
+        Db::delete(self::TABLE, array_filter(['entryId' => (int)$entry->id, 'siteId' => $siteId], fn($value) => $value !== null));
+    }
+
+    /**
+     * The hash of everything that decides what's an issue: the outline rules (Outline::VERSION), the settings, Trinity's
+     * settings, and the project config (field layouts, conditions). A new hash builds a new list.
+     */
+    public function hash(): string
+    {
+        if ($this->hash !== null) {
+            return $this->hash;
+        }
+        $settings = HeadingsChecker::getInstance()->getSettings();
+        $rows = HeadingsChecker::getInstance()->getOutline()->rows();
+        $trinity = $rows?->getSettings();
+        return $this->hash = md5((string)json_encode([
+            Outline::VERSION,
+            $settings->fields,
+            $settings->titleFields,
+            $settings->textFields,
+            $settings->cardTypes,
+            array_map(fn($heading) => is_string($heading) ? $heading : 'callable', $settings->rowHeadings),
+            $settings->rowHeadingCategory,
+            $settings->showTitleField,
+            $settings->pageTitle,
+            $settings->backgroundField,
+            $trinity ? [
+                $trinity->rowEntryType,
+                $trinity->cellsField,
+                $trinity->rowBackgroundField,
+                $trinity->rowBackgroundDefault,
+                $trinity->rowSpacingField,
+            ] : null,
+            Craft::$app->getProjectConfig()->get('dateModified'),
+        ]));
+    }
+
+    /**
+     * @param array<array<string, mixed>> $issues
+     */
+    private function store(int $entryId, int $siteId, array $issues): void
+    {
+        if (!$issues) {
+            Db::delete(self::TABLE, ['entryId' => $entryId, 'siteId' => $siteId]);
+            return;
+        }
+        Db::upsert(self::TABLE, [
+            'entryId' => $entryId,
+            'siteId' => $siteId,
+            'issues' => Json::encode($issues),
+        ]);
+    }
+
     private function queue(int $id, int $siteId): void
     {
         // Add it before registering the callback: after the request it runs right away
         $first = !$this->pending;
         $this->pending["$id-$siteId"] = [$id, $siteId];
         if ($first) {
-            Craft::$app->onAfterRequest(fn() => $this->refreshPending());
+            Craft::$app->onAfterRequest(fn() => $this->flush());
         }
     }
 
     /**
-     * Removes a deleted page from the report: in every site, or in one (deleted for a site).
+     * Updates the report for the pages saved so far in this request (or queue job).
      */
-    public function forget(Entry $entry, ?int $siteId = null): void
-    {
-        $cache = Craft::$app->getCache();
-        $report = $cache->get($this->cacheKey());
-        if (!is_array($report)) {
-            return;
-        }
-        $report = array_filter($report, fn(array $item) => $item['entryId'] !== (int)$entry->id || ($siteId !== null && $item['siteId'] !== $siteId));
-        $cache->set($this->cacheKey(), $report, 0);
-    }
-
-    private function refreshPending(): void
+    public function flush(): void
     {
         $pending = $this->pending;
         $this->pending = [];
-        $cache = Craft::$app->getCache();
-        $report = $cache->get($this->cacheKey());
-        if (!is_array($report)) {
-            return;
-        }
-        $outline = HeadingsChecker::getInstance()->getOutline();
-        foreach ($pending as $key => [$id, $siteId]) {
+        foreach ($pending as [$id, $siteId]) {
             $page = Entry::find()->id($id)->siteId($siteId)->status(null)->one();
-            $issues = $page ? $outline->issues($page) : null;
-            if ($page && $issues) {
-                $report[$key] = $this->item($page, $issues);
+            if ($page) {
+                $this->checkPage($page);
             } else {
-                unset($report[$key]);
+                Db::delete(self::TABLE, ['entryId' => $id, 'siteId' => $siteId]);
             }
         }
-        $cache->set($this->cacheKey(), $report, 0);
     }
 
-    /**
-     * The report's cache key: changes with the outline rules (Outline::VERSION) and with the settings that decide what's an
-     * issue, so a changed config builds a new report.
-     */
-    private function cacheKey(): string
+    private function state(string $name): ?string
     {
-        $settings = HeadingsChecker::getInstance()->getSettings();
-        $hash = md5((string)json_encode([
-            $settings->fields,
-            $settings->titleFields,
-            $settings->textFields,
-            $settings->cardTypes,
-            array_keys($settings->rowHeadings),
-            $settings->showTitleField,
-            $settings->pageTitle,
-        ]));
-        return 'headings-checker.report.v' . Outline::VERSION . '.' . $hash;
+        $value = (new Query())->select(['value'])->from(self::STATE_TABLE)->where(['name' => $name])->scalar();
+        return $value === false || $value === null ? null : (string)$value;
     }
 
-    private function key(Entry $entry): string
+    private function setState(string $name, string $value): void
     {
-        return $entry->id . '-' . $entry->siteId;
-    }
-
-    /**
-     * @param string[] $issues
-     * @return array{entryId: int, siteId: int, title: string, url: string, issues: string[]}
-     */
-    private function item(Entry $entry, array $issues): array
-    {
-        return [
-            'entryId' => (int)$entry->id,
-            'siteId' => (int)$entry->siteId,
-            'title' => (string)$entry->title,
-            'url' => (string)$entry->getCpEditUrl(),
-            'issues' => $issues,
-        ];
+        Db::upsert(self::STATE_TABLE, ['name' => $name, 'value' => $value]);
     }
 }

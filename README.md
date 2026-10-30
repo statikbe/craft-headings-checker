@@ -163,14 +163,18 @@ php craft headings-checker/check                  # every section, every site
 php craft headings-checker/check --section=pages
 ```
 
-Without `--section` it also rebuilds the list of the dashboard widget.
+It also updates the list of the dashboard widget, in full without `--section`. It exits with 1 when a page has issues, so a
+deploy script or CI can check a site before you switch to `'block'`.
 
 ## Notes
 
 - The check only runs when an entry is published in a web request: not for drafts, autosaves, resaving, propagation
   to other sites or console commands.
-- The widget's list is kept in the cache and updated when a page or one of its blocks is saved or deleted. A changed config
-  starts a new list.
+- The widget's list is kept in a table, one row per page and site, and updated when a page or one of its blocks is saved,
+  deleted or restored. When the settings, Trinity's settings or the project config change, a queue job builds a new list
+  (the widget says so in the meantime); the list is never built while a page loads. Clearing Craft's caches doesn't
+  affect it.
+- The messages are made when they're shown, in the language of the user who reads them.
 
 ## License
 

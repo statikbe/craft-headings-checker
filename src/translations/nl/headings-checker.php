@@ -27,4 +27,6 @@ return [
     'the cards are H3 headings, but there is no H2 above them. Give this column a title.' => 'de kaarten zijn H3-koppen, maar er staat geen H2 boven. Geef deze kolom een titel.',
     'the cards are H3 headings, but there is no H2 above them. Give this block a title.' => 'de kaarten zijn H3-koppen, maar er staat geen H2 boven. Geef dit blok een titel.',
     'the cards are H3 headings, but there is no H2 above them. Add a title above them.' => 'de kaarten zijn H3-koppen, maar er staat geen H2 boven. Voeg er een titel boven toe.',
+    'Finding the pages with heading issues' => 'Pagina\'s met problemen in de koppen zoeken',
+    'Building the list of pages with heading issues. Come back in a few minutes.' => 'De lijst met pagina\'s met problemen in de koppen wordt opgebouwd. Kom over een paar minuten terug.',
 ];

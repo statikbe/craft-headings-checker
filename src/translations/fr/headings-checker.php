@@ -27,4 +27,6 @@ return [
     'the cards are H3 headings, but there is no H2 above them. Give this column a title.' => 'les cartes sont des titres H3, mais il n\'y a pas de H2 au-dessus. Donnez un titre à cette colonne.',
     'the cards are H3 headings, but there is no H2 above them. Give this block a title.' => 'les cartes sont des titres H3, mais il n\'y a pas de H2 au-dessus. Donnez un titre à ce bloc.',
     'the cards are H3 headings, but there is no H2 above them. Add a title above them.' => 'les cartes sont des titres H3, mais il n\'y a pas de H2 au-dessus. Ajoutez un titre au-dessus.',
+    'Finding the pages with heading issues' => 'Recherche des pages avec des problèmes de titres',
+    'Building the list of pages with heading issues. Come back in a few minutes.' => 'La liste des pages avec des problèmes de titres est en cours de création. Revenez dans quelques minutes.',
 ];

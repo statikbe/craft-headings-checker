@@ -9,9 +9,10 @@ use statikbe\headingschecker\HeadingsChecker;
 use yii\console\ExitCode;
 
 /**
- * Lists the entries whose content builder skips a heading level: the same check as when an entry is published. Run it before
- * setting the mode to 'block' on a site with existing content, so editors aren't blocked by old pages. Without --section it
- * also rebuilds the list of the Heading issues dashboard widget.
+ * Lists the pages whose headings skip a level, the same check as when an entry is published.
+ *
+ * Run it before setting the mode to 'block' on a site with existing content, so editors aren't blocked by old pages. It also
+ * updates the list of the Heading issues dashboard widget (in full without --section). Exits with 1 when a page has issues.
  *
  *   php craft headings-checker/check
  *   php craft headings-checker/check --section=pages
@@ -28,17 +29,32 @@ class CheckController extends Controller
         return array_merge(parent::options($actionID), ['section']);
     }
 
+    /**
+     * Lists the pages with heading issues and updates the widget's list. Exits with 1 when a page has issues.
+     */
     public function actionIndex(): int
     {
         $plugin = HeadingsChecker::getInstance();
-        // Pages in a section (not the nested entries), every site, every status
-        $query = Entry::find()->section($this->section ?? '*')->site('*')->status(null)->drafts(false)->revisions(false);
+        $report = $plugin->getReport();
+        $outline = $plugin->getOutline();
+        $full = $this->section === null;
+        $hash = $report->hash();
+        if ($full) {
+            $report->startBuild();
+        }
+
+        // Pages in a section (not the nested entries), every site, every status; site by site, so a batch loads together
+        $query = Entry::find()
+            ->section($this->section ?? '*')
+            ->site('*')
+            ->status(null)
+            ->orderBy(['elements_sites.siteId' => SORT_ASC, 'elements.id' => SORT_ASC]);
 
         $checked = 0;
         $failing = 0;
         foreach ($query->each() as $entry) {
             /** @var Entry $entry */
-            $issues = $plugin->getOutline()->issues($entry);
+            $issues = $report->checkPage($entry);
             if ($issues === null) {
                 continue;
             }
@@ -49,15 +65,15 @@ class CheckController extends Controller
             $failing++;
             $this->stdout(sprintf("%s (%s, %s)\n", $entry->title, $entry->getSite()->handle, $entry->getCpEditUrl()), Console::FG_YELLOW);
             foreach ($issues as $issue) {
-                $this->stdout("  - $issue\n");
+                $this->stdout('  - ' . $outline->message($issue) . "\n");
             }
         }
 
-        if ($this->section === null) {
-            $plugin->getReport()->get(true);
+        if ($full) {
+            $report->finishBuild($hash);
         }
 
         $this->stdout(sprintf("\n%d entries checked, %d with heading issues.\n", $checked, $failing), $failing ? Console::FG_RED : Console::FG_GREEN);
-        return ExitCode::OK;
+        return $failing ? ExitCode::UNSPECIFIED_ERROR : ExitCode::OK;
     }
 }

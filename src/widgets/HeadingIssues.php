@@ -8,8 +8,8 @@ use craft\elements\Entry;
 use statikbe\headingschecker\HeadingsChecker;
 
 /**
- * Dashboard widget: the pages whose content builder skips a heading level, with a link to edit each one. The list is cached
- * and updated when a page is saved or deleted. Each user only sees the pages they may edit.
+ * Dashboard widget: the pages whose content builder skips a heading level, with a link to edit each one. The list is kept
+ * in a table (Report) and updated when a page is saved or deleted. Each user only sees the pages they may edit.
  */
 class HeadingIssues extends Widget
 {
@@ -45,15 +45,26 @@ class HeadingIssues extends Widget
 
     public function getBodyHtml(): ?string
     {
-        $sites = Craft::$app->getSites();
-        $items = $this->editable(array_values(HeadingsChecker::getInstance()->getReport()->get()));
-        usort($items, fn(array $a, array $b) => [$a['title'], $a['siteId']] <=> [$b['title'], $b['siteId']]);
-        foreach ($items as &$item) {
-            $item['site'] = $sites->getSiteById($item['siteId'], true)?->getName() ?? '';
+        $report = HeadingsChecker::getInstance()->getReport();
+        if (!$report->ensureBuilt()) {
+            return Craft::$app->getView()->renderTemplate('headings-checker/_widgets/headingIssues/body', ['building' => true]);
         }
-        unset($item);
+
+        $outline = HeadingsChecker::getInstance()->getOutline();
+        $items = [];
+        foreach ($this->editable($report->items()) as [$entry, $issues]) {
+            $items[] = [
+                'title' => (string)$entry->title,
+                'url' => (string)$entry->getCpEditUrl(),
+                'site' => $entry->getSite()->getName(),
+                'siteId' => (int)$entry->siteId,
+                'issues' => array_map(fn(array $issue) => $outline->message($issue), $issues),
+            ];
+        }
+        usort($items, fn(array $a, array $b) => [$a['title'], $a['siteId']] <=> [$b['title'], $b['siteId']]);
 
         return Craft::$app->getView()->renderTemplate('headings-checker/_widgets/headingIssues/body', [
+            'building' => false,
             'items' => array_slice($items, 0, $this->limit),
             'total' => count($items),
             'multiSite' => Craft::$app->getIsMultiSite(),
@@ -61,11 +72,11 @@ class HeadingIssues extends Widget
     }
 
     /**
-     * Only the pages that still exist and that the user may edit: the site, and the entry (their own, or other authors' with
+     * The pages that still exist and that the user may edit: the site, and the entry (their own, or other authors' with
      * "Edit other authors' entries"). An admin sees every page.
      *
-     * @param array<array{entryId: int, siteId: int, title: string, url: string, issues: string[]}> $items
-     * @return array<array{entryId: int, siteId: int, title: string, url: string, issues: string[]}>
+     * @param array<array{entryId: int, siteId: int, issues: array<array<string, mixed>>}> $items
+     * @return array<array{0: Entry, 1: array<array<string, mixed>>}> the entry and its issues
      */
     private function editable(array $items): array
     {
@@ -85,18 +96,20 @@ class HeadingIssues extends Widget
 
         $elements = Craft::$app->getElements();
         $multiSite = Craft::$app->getIsMultiSite();
-        return array_values(array_filter($items, function(array $item) use ($entries, $elements, $user, $multiSite) {
+        $editable = [];
+        foreach ($items as $item) {
             $entry = $entries[$item['entryId'] . '-' . $item['siteId']] ?? null;
             if ($entry === null) {
-                return false;
+                continue;
             }
-            if ($user->admin) {
-                return true;
+            if (
+                !$user->admin
+                && (($multiSite && !$user->can('editSite:' . $entry->getSite()->uid)) || !$elements->canSave($entry, $user))
+            ) {
+                continue;
             }
-            if ($multiSite && !$user->can('editSite:' . $entry->getSite()->uid)) {
-                return false;
-            }
-            return $elements->canSave($entry, $user);
-        }));
+            $editable[] = [$entry, $item['issues']];
+        }
+        return $editable;
     }
 }

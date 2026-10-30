@@ -1,5 +1,7 @@
-{# Heading issues widget (src/widgets/HeadingIssues.php): items = [{title, url, site, issues}], total #}
-{% if items is empty %}
+{# Heading issues widget (src/widgets/HeadingIssues.php): building, or items = [{title, url, site, issues}] and total #}
+{% if building %}
+    <p class="light">{{ 'Building the list of pages with heading issues. Come back in a few minutes.'|t('headings-checker') }}</p>
+{% elseif items is empty %}
     <p class="light">{{ 'No pages with heading issues.'|t('headings-checker') }}</p>
 {% else %}
     <p class="light">{{ '{count, plural, =1{# page has} other{# pages have}} heading issues.'|t('headings-checker', { count: total }) }}</p>

@@ -25,6 +25,7 @@ use statikbe\headingschecker\web\assets\cp\HeadingsCheckerAsset;
 use statikbe\headingschecker\web\assets\cp\LevelBadgesAsset;
 use statikbe\headingschecker\widgets\HeadingIssues;
 use yii\base\Event;
+use yii\queue\Queue;
 
 /**
  * Headings Checker: the heading order of content builders, checked when an entry is published, shown in the entry sidebar
@@ -34,7 +35,7 @@ use yii\base\Event;
  */
 class HeadingsChecker extends Plugin
 {
-    public string $schemaVersion = '1.0.0';
+    public string $schemaVersion = '1.1.0';
 
     public static function config(): array
     {
@@ -86,6 +87,12 @@ class HeadingsChecker extends Plugin
             $entry = $event->sender;
             $this->getReport()->refreshAllSites($entry);
         });
+
+        // A queue worker runs for a long time: update the report after each job, not when the worker stops
+        if (Craft::$app->getRequest()->getIsConsoleRequest()) {
+            Event::on(Queue::class, Queue::EVENT_AFTER_EXEC, fn() => $this->getReport()->flush());
+            Event::on(Queue::class, Queue::EVENT_AFTER_ERROR, fn() => $this->getReport()->flush());
+        }
 
         Event::on(Dashboard::class, Dashboard::EVENT_REGISTER_WIDGET_TYPES, function(RegisterComponentTypesEvent $event) {
             $event->types[] = HeadingIssues::class;

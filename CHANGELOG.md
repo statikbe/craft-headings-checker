@@ -1,5 +1,20 @@
 # Release Notes for Headings Checker
 
+## 1.2.0 - 2026-10-30
+
+### Changed
+- The Heading issues widget's list is kept in a table (one row per page and site) instead of the cache, and built by a queue job when the settings or the project config change: never while the dashboard loads, and clearing the caches no longer rebuilds it. The widget shows "Building the list…" until it's ready
+- Two editors saving at the same time no longer overwrite each other's update of the list
+- The list also follows changes of `backgroundField`, Trinity's settings and the field layouts (project config)
+- Issues are stored as data and turned into messages when they're shown, in the reader's language; links and titles are current
+- Rows, columns and nested entries are loaded in one query per level for the pages fetched together (about a third of the queries)
+- `headings-checker/check` reads every page once (it read them twice without `--section`) and exits with 1 when a page has issues
+- Pages saved by a queue job (e.g. an import) update the widget right after the job, not when the queue worker stops
+
+### Fixed
+- The Heading outline panel works for an entry opened in a slideout, next to the panel of the page behind it
+- The help text of `headings-checker/check`
+
 ## 1.1.2 - 2026-10-30
 
 ### Fixed
