@@ -7,7 +7,8 @@ fields directly on an entry, in Craft CMS 5:
 - **When an entry is published**: block the save, or warn, when a heading in the content skips a level. With `'block'` the
   error is shown where the problem is, as for Craft's own errors: on the row, the block or column, and its field.
 - **Heading outline** in the entry sidebar: every heading of the page in order, indented by level, with hidden headings and
-  skipped levels marked. Collapsible (the browser remembers it) and reloaded after every autosave.
+  skipped levels marked. Collapsible (the browser remembers it), loaded after the page and reloaded once the editor pauses
+  after an autosave.
 - **Heading issues** dashboard widget: the pages with issues, with a link to edit each one. Each user only sees the pages
   they may edit.
 - **`craft headings-checker/check`**: lists the entries with issues, e.g. before you switch to `'block'` on a site with
@@ -170,10 +171,16 @@ deploy script or CI can check a site before you switch to `'block'`.
 
 - The check only runs when an entry is published in a web request: not for drafts, autosaves, resaving, propagation
   to other sites or console commands.
-- The widget's list is kept in a table, one row per page and site, and updated when a page or one of its blocks is saved,
-  deleted or restored. When the settings, Trinity's settings or the project config change, a queue job builds a new list
-  (the widget says so in the meantime); the list is never built while a page loads. Clearing Craft's caches doesn't
-  affect it.
+- The widget's list is kept in a table, one row per page and site. A saved or restored page (or one of its blocks) is
+  checked by a queue job after the request, a batch of pages at a time; a deleted page leaves the list at once. Resaving
+  (`craft resave`) doesn't check pages again.
+- When the settings, Trinity's settings, or the fields, entry types, sections or sites in the project config change, a queue
+  job builds a new list; the previous one stays visible meanwhile, and the widget says it's being updated. Other project
+  config changes don't rebuild it, and the list is never built while a page loads. Clearing Craft's caches doesn't affect it.
+- The plugin's queue jobs run after Craft's own (priority 2048) and stop well before their time limit, going on in a new
+  job, so a large site or an import never makes them fail.
+- On the front end, `craft.headingsChecker.rowHeading()` only reads the page's outline for rows with cards that have a
+  hidden h2 configured; other rows cost nothing.
 - The messages are made when they're shown, in the language of the user who reads them.
 
 ## License

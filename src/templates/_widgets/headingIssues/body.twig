@@ -1,9 +1,16 @@
-{# Heading issues widget (src/widgets/HeadingIssues.php): building, or items = [{title, url, site, issues}] and total #}
+{# Heading issues widget (src/widgets/HeadingIssues.php): building, or items = [{title, url, site, issues}], total and
+   rebuilding (the list shown is for older settings while a new one is built) #}
 {% if building %}
     <p class="light">{{ 'Building the list of pages with heading issues. Come back in a few minutes.'|t('headings-checker') }}</p>
 {% elseif items is empty %}
+    {% if rebuilding ?? false %}
+        <p class="light">{{ 'The list is being updated for changed settings.'|t('headings-checker') }}</p>
+    {% endif %}
     <p class="light">{{ 'No pages with heading issues.'|t('headings-checker') }}</p>
 {% else %}
+    {% if rebuilding ?? false %}
+        <p class="light">{{ 'The list is being updated for changed settings.'|t('headings-checker') }}</p>
+    {% endif %}
     <p class="light">{{ '{count, plural, =1{# page has} other{# pages have}} heading issues.'|t('headings-checker', { count: total }) }}</p>
     <ul style="list-style: none; padding: 0; margin: 0;">
         {% for item in items %}

@@ -44,11 +44,15 @@ class Outline extends Component
     /** @var \WeakMap<ElementInterface, array<string|null>> visible custom field handles per element object (without Trinity) */
     private \WeakMap $visibleFields;
 
+    /** @var \WeakMap<ElementInterface, bool> whether a result set (by its first element) is in one site (canEagerLoad()) */
+    private \WeakMap $oneSite;
+
     public function init(): void
     {
         parent::init();
         $this->outlines = new \WeakMap();
         $this->visibleFields = new \WeakMap();
+        $this->oneSite = new \WeakMap();
     }
 
     /**
@@ -56,8 +60,45 @@ class Outline extends Component
      */
     public function rowHeading(ElementInterface $page, Entry $row, ?string $field = null): ?string
     {
+        // Only a row with a column (or a block) of cards that has a hidden h2 configured can get one: the others don't need the
+        // page's outline, which takes a few queries to build
+        if (!$this->mayHaveRowHeading($row)) {
+            return null;
+        }
         $field ??= $row->fieldId !== null ? $row->getField()->handle : ($this->settings()->fields[0] ?? '');
         return $this->pageOutline($page)['rowHeadings'][$field][$this->rowKey($row)] ?? null;
+    }
+
+    /**
+     * Whether a row or block has a column (or is a block) of a card type with a hidden h2 (settings → cardTypes and
+     * rowHeadings). A row's columns are read eagerly, as the templates read them (craft.trinity.row()), so they're usually
+     * loaded already; disabled ones aren't rendered, so they don't count.
+     */
+    private function mayHaveRowHeading(Entry $row): bool
+    {
+        $settings = $this->settings();
+        $types = array_keys(array_filter(
+            $settings->rowHeadings,
+            fn($heading, $type) => in_array($type, $settings->cardTypes, true) && $heading !== '',
+            ARRAY_FILTER_USE_BOTH,
+        ));
+        if (!$types) {
+            return false;
+        }
+        $rows = $this->rows();
+        if ($rows === null || !$rows->isRow($row)) {
+            return in_array($row->getType()->handle, $types, true);
+        }
+        $value = $row->getFieldValue($rows->getSettings()->cellsField);
+        $cells = $value instanceof ElementQueryInterface
+            ? ($value->getCachedResult() ?? (clone $value)->eagerly()->all())
+            : (is_iterable($value) ? $value : []);
+        foreach ($cells as $cell) {
+            if ($cell instanceof Entry && in_array($cell->getType()->handle, $types, true)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -663,12 +704,23 @@ class Outline extends Component
         if (!isset($query->eagerLoadHandle) || $source === null || !isset($source->elementQueryResult)) {
             return false;
         }
-        foreach ($source->elementQueryResult as $element) {
-            if ($element->siteId !== $source->siteId) {
-                return false;
-            }
+        // Worked out once per result set (kept by its first element), not for every field of every element in it
+        $result = $source->elementQueryResult;
+        $first = reset($result);
+        if (!$first instanceof ElementInterface) {
+            return false;
         }
-        return true;
+        if (!isset($this->oneSite[$first])) {
+            $same = true;
+            foreach ($result as $element) {
+                if ($element->siteId !== $first->siteId) {
+                    $same = false;
+                    break;
+                }
+            }
+            $this->oneSite[$first] = $same;
+        }
+        return $this->oneSite[$first] && $source->siteId === $first->siteId;
     }
 
     private function rowKey(Entry $row): int

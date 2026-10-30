@@ -4,8 +4,11 @@ namespace statikbe\headingschecker\widgets;
 
 use Craft;
 use craft\base\Widget;
+use craft\db\Query;
+use craft\elements\db\EntryQuery;
 use craft\elements\Entry;
 use statikbe\headingschecker\HeadingsChecker;
+use statikbe\headingschecker\services\Report;
 
 /**
  * Dashboard widget: the pages whose content builder skips a heading level, with a link to edit each one. The list is kept
@@ -46,70 +49,68 @@ class HeadingIssues extends Widget
     public function getBodyHtml(): ?string
     {
         $report = HeadingsChecker::getInstance()->getReport();
-        if (!$report->ensureBuilt()) {
-            return Craft::$app->getView()->renderTemplate('headings-checker/_widgets/headingIssues/body', ['building' => true]);
+        $state = $report->ensureBuilt();
+        $view = Craft::$app->getView();
+        if ($state === 'building') {
+            return $view->renderTemplate('headings-checker/_widgets/headingIssues/body', ['building' => true]);
         }
 
+        // Sorted, counted and cut to the limit by the database: only the pages shown are loaded
+        $query = $this->query();
+        $total = $query ? (int)$query->count() : 0;
+        $entries = $query && $total ? $query->limit($this->limit)->all() : [];
+
         $outline = HeadingsChecker::getInstance()->getOutline();
+        $issues = $report->issuesOf(array_map(fn(Entry $entry) => [(int)$entry->id, (int)$entry->siteId], $entries));
         $items = [];
-        foreach ($this->editable($report->items()) as [$entry, $issues]) {
+        foreach ($entries as $entry) {
+            /** @var Entry $entry */
             $items[] = [
                 'title' => (string)$entry->title,
                 'url' => (string)$entry->getCpEditUrl(),
                 'site' => $entry->getSite()->getName(),
                 'siteId' => (int)$entry->siteId,
-                'issues' => array_map(fn(array $issue) => $outline->message($issue), $issues),
+                'issues' => array_map(fn(array $issue) => $outline->message($issue), $issues[$entry->id . '-' . $entry->siteId] ?? []),
             ];
         }
-        usort($items, fn(array $a, array $b) => [$a['title'], $a['siteId']] <=> [$b['title'], $b['siteId']]);
 
-        return Craft::$app->getView()->renderTemplate('headings-checker/_widgets/headingIssues/body', [
+        return $view->renderTemplate('headings-checker/_widgets/headingIssues/body', [
             'building' => false,
-            'items' => array_slice($items, 0, $this->limit),
-            'total' => count($items),
+            'rebuilding' => $state === 'rebuilding',
+            'items' => $items,
+            'total' => $total,
             'multiSite' => Craft::$app->getIsMultiSite(),
         ]);
     }
 
     /**
-     * The pages that still exist and that the user may edit: the site, and the entry (their own, or other authors' with
-     * "Edit other authors' entries"). An admin sees every page.
-     *
-     * @param array<array{entryId: int, siteId: int, issues: array<array<string, mixed>>}> $items
-     * @return array<array{0: Entry, 1: array<array<string, mixed>>}> the entry and its issues
+     * The pages in the list that still exist and that the user may edit, by title: in a site they may edit, and an entry
+     * they may save (their own, or other authors' with "Edit other authors' entries"). An admin sees every page. Null when
+     * the user may edit none.
      */
-    private function editable(array $items): array
+    private function query(): ?EntryQuery
     {
         $user = Craft::$app->getUser()->getIdentity();
-        if ($user === null || !$items) {
-            return [];
+        if ($user === null) {
+            return null;
         }
-        $entries = [];
         $query = Entry::find()
-            ->id(array_values(array_unique(array_column($items, 'entryId'))))
-            ->siteId(array_values(array_unique(array_column($items, 'siteId'))))
-            ->status(null);
-        foreach ($query->each() as $entry) {
-            /** @var Entry $entry */
-            $entries[$entry->id . '-' . $entry->siteId] = $entry;
-        }
-
-        $elements = Craft::$app->getElements();
-        $multiSite = Craft::$app->getIsMultiSite();
-        $editable = [];
-        foreach ($items as $item) {
-            $entry = $entries[$item['entryId'] . '-' . $item['siteId']] ?? null;
-            if ($entry === null) {
-                continue;
+            ->section('*')
+            ->site('*')
+            ->status(null)
+            ->drafts(false)
+            ->revisions(false)
+            ->andWhere(['exists', (new Query())
+                ->from(['hc' => Report::TABLE])
+                ->where('[[hc.entryId]] = [[elements.id]] AND [[hc.siteId]] = [[elements_sites.siteId]]'), ])
+            ->orderBy(['elements_sites.title' => SORT_ASC, 'elements_sites.siteId' => SORT_ASC, 'elements.id' => SORT_ASC]);
+        if (!$user->admin) {
+            $siteIds = Craft::$app->getSites()->getEditableSiteIds();
+            if (!$siteIds) {
+                return null;
             }
-            if (
-                !$user->admin
-                && (($multiSite && !$user->can('editSite:' . $entry->getSite()->uid)) || !$elements->canSave($entry, $user))
-            ) {
-                continue;
-            }
-            $editable[] = [$entry, $item['issues']];
+            $query->siteId($siteIds)->savable();
         }
-        return $editable;
+        return $query;
     }
 }

@@ -1,5 +1,22 @@
 # Release Notes for Headings Checker
 
+## 1.3.0 - 2026-10-31
+
+> [!IMPORTANT]
+> Run `php craft up` after updating: a migration adds the table of saved pages to check. The widget's list is built again once.
+
+### Changed
+- The Heading issues widget sorts, counts and cuts its list in the database and only loads the pages it shows: on a site with 7,549 pages with issues, 40–70 ms and 2 MB instead of 0.6 s and 150 MB (it could run out of memory on a large site). Pages are sorted by title as the database sorts them (case and accents don't matter)
+- Saved pages are checked by a queue job after the request (`UpdatePagesJob`), a batch per site, instead of one by one at the end of the editor's request. A bulk save of 400 pages took 2.5 s in the request; it now takes 20 ms. Resaving (`craft resave`) no longer checks pages again
+- Pages saved by a queue job (an import) are queued for the check right after that job, also when the queue runs in a web request
+- The list is only built again when the settings, Trinity's settings, or the fields, entry types, sections or sites in the project config change, not after every project config change (an image transform, a user group, another plugin's settings)
+- While the list is built again, the previous one stays visible, with a note that it's being updated
+- A build checks only the entries of entry types with a content builder or a text field, a site at a time in order of id (no offset), in batches of 25 pages, and goes on in a new job well before the time limit. A newer build stops an older one; a stalled build no longer runs twice. On the base install: 4.2 s and 760 queries instead of 5.7 s and 5,400; 40 MB instead of 100 MB
+- The plugin's queue jobs run after Craft's own (priority 2048) with a time limit
+- `craft.headingsChecker.rowHeading()` only reads the page's outline for a row with cards that have a hidden h2 configured; on a page without such rows it costs nothing
+- The Heading outline panel loads its list after the page, and reloads it 10 seconds after the editor's last autosave (a minute while it's collapsed, at once when it's expanded), cancelling a reload that's still running
+- `headings-checker/check` reads the pages in batches (not all into memory) and is about a third faster
+
 ## 1.2.0 - 2026-10-30
 
 ### Changed

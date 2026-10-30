@@ -29,4 +29,7 @@ return [
     'the cards are H3 headings, but there is no H2 above them. Add a title above them.' => 'les cartes sont des titres H3, mais il n\'y a pas de H2 au-dessus. Ajoutez un titre au-dessus.',
     'Finding the pages with heading issues' => 'Recherche des pages avec des problèmes de titres',
     'Building the list of pages with heading issues. Come back in a few minutes.' => 'La liste des pages avec des problèmes de titres est en cours de création. Revenez dans quelques minutes.',
+    'Checking the headings of saved pages' => 'Vérification des titres des pages enregistrées',
+    'Reading the headings…' => 'Lecture des titres…',
+    'The list is being updated for changed settings.' => 'La liste est mise à jour suite à une modification des réglages.',
 ];

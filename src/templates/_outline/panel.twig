@@ -1,31 +1,34 @@
 {# Heading outline in an entry's sidebar (HeadingsChecker::sidebarHtml(), settings → outline).
-   Collapsible; the state is remembered in the browser (web/assets/cp/dist/outline.js). #}
-{% set issues = tree|filter(h => h.issue)|length %}
-{# An entry in a slideout has a panel of its own, next to the one of the page behind it: ids are unique #}
-{% set bodyId = 'hc-outline-body-' ~ random() %}
-<fieldset class="hc-outline" data-site-id="{{ entry.siteId }}" data-element-id="{{ entry.id }}">
+   The list is loaded after the page (web/assets/cp/dist/outline.js), so the panel never slows the edit page down.
+   Collapsible; the state is remembered in the browser. The ids are unique, so a panel in a slideout works next to the one of
+   the page. A slideout namespaces the ids, so the script finds it by data-hc-panel. #}
+{% set panelId = 'hc-outline-' ~ entry.id ~ '-' ~ random() %}
+<fieldset class="hc-outline" data-hc-panel="{{ panelId }}" data-site-id="{{ entry.siteId }}" data-element-id="{{ entry.id }}">
     <legend class="h6 hc-outline__legend">
-        <button type="button" class="hc-outline__toggle" aria-expanded="true" aria-controls="{{ bodyId }}">
+        <button type="button" class="hc-outline__toggle" aria-expanded="true" aria-controls="{{ panelId }}-body">
             <span class="hc-outline__chevron" aria-hidden="true"></span>
             <span>{{ 'Heading outline'|t('headings-checker') }}</span>
-            <span class="hc-outline__summary{{ issues ? ' hc-outline__summary--issues' }}" data-outline-summary>
-                {%- if issues -%}
-                    {{ '{count, plural, =1{# issue} other{# issues}}'|t('headings-checker', { count: issues }) }}
-                {%- endif -%}
-            </span>
+            <span class="hc-outline__summary" data-outline-summary></span>
         </button>
     </legend>
-    <div id="{{ bodyId }}" class="meta hc-outline__body">
-        {% include 'headings-checker/_outline/list' %}
+    <div id="{{ panelId }}-body" class="meta hc-outline__body">
+        <p class="light hc-outline__empty">{{ 'Reading the headings…'|t('headings-checker') }}</p>
     </div>
 </fieldset>
 <script>
-    {# Collapse before the page paints, so a collapsed panel doesn't flash open #}
-    try {
-        const panel = document.currentScript?.previousElementSibling;
-        if (panel?.classList.contains('hc-outline') && localStorage.getItem('headingsChecker.outline.collapsed') === '1') {
-            panel.classList.add('is-collapsed');
-            panel.querySelector('.hc-outline__toggle').setAttribute('aria-expanded', 'false');
+    {# Collapse before the page paints, so a collapsed panel doesn't flash open; then set it up (now, or once outline.js is loaded) #}
+    (function(id) {
+        try {
+            if (localStorage.getItem('headingsChecker.outline.collapsed') === '1') {
+                const panel = document.querySelector('[data-hc-panel="' + id + '"]');
+                panel.classList.add('is-collapsed');
+                panel.querySelector('.hc-outline__toggle').setAttribute('aria-expanded', 'false');
+            }
+        } catch (e) {}
+        if (window.HeadingsCheckerOutline) {
+            window.HeadingsCheckerOutline.init(id);
+        } else {
+            (window.HeadingsCheckerOutlines = window.HeadingsCheckerOutlines || []).push(id);
         }
-    } catch (e) {}
+    })({{ panelId|json_encode|raw }});
 </script>

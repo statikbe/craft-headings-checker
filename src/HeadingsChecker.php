@@ -35,7 +35,7 @@ use yii\queue\Queue;
  */
 class HeadingsChecker extends Plugin
 {
-    public string $schemaVersion = '1.1.0';
+    public string $schemaVersion = '1.3.0';
 
     public static function config(): array
     {
@@ -88,11 +88,10 @@ class HeadingsChecker extends Plugin
             $this->getReport()->refreshAllSites($entry);
         });
 
-        // A queue worker runs for a long time: update the report after each job, not when the worker stops
-        if (Craft::$app->getRequest()->getIsConsoleRequest()) {
-            Event::on(Queue::class, Queue::EVENT_AFTER_EXEC, fn() => $this->getReport()->flush());
-            Event::on(Queue::class, Queue::EVENT_AFTER_ERROR, fn() => $this->getReport()->flush());
-        }
+        // A queue job (an import) is done: the pages it saved are queued, without waiting for the worker or the web request
+        // that runs the queue to end
+        Event::on(Queue::class, Queue::EVENT_AFTER_EXEC, fn() => $this->getReport()->flushPending());
+        Event::on(Queue::class, Queue::EVENT_AFTER_ERROR, fn() => $this->getReport()->flushPending());
 
         Event::on(Dashboard::class, Dashboard::EVENT_REGISTER_WIDGET_TYPES, function(RegisterComponentTypesEvent $event) {
             $event->types[] = HeadingIssues::class;
@@ -135,22 +134,23 @@ class HeadingsChecker extends Plugin
     }
 
     /**
-     * The Heading outline panel: every heading of the page in order, collapsible (settings → outline).
+     * The Heading outline panel: every heading of the page in order, collapsible (settings → outline). The list is loaded
+     * after the page (outline.js), so the panel never slows the edit page down. Only for entries whose layout has a content
+     * builder or a text field.
      */
     public function sidebarHtml(Entry $entry): string
     {
         if (!$this->getSettings()->outline || $entry->getIsRevision() || $entry->getSection() === null) {
             return '';
         }
-        $tree = $this->getOutline()->pageTree($entry);
-        if ($tree === null) {
+        $outline = $this->getOutline();
+        if (!$outline->builderFields($entry) && !$outline->textFields($entry)) {
             return '';
         }
         $view = Craft::$app->getView();
         $view->registerAssetBundle(HeadingsCheckerAsset::class);
         return $view->renderTemplate('headings-checker/_outline/panel', [
             'entry' => $entry,
-            'tree' => $tree,
         ], View::TEMPLATE_MODE_CP);
     }
 
