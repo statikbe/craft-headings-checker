@@ -1,5 +1,16 @@
 # Release Notes for Headings Checker
 
+## 1.1.0 - 2026-10-30
+
+### Added
+- `textFields`: rich text fields of the entry itself, outside a content builder, checked under the h1 (also for entries without a content builder)
+
+### Changed
+- In `'warn'` mode the warning lists the issues of every content builder, instead of only the last one with issues
+
+### Fixed
+- `headings-checker/check` and the widget's report could skip or report the wrong blocks on large sites: a block could get the visible fields of another one, freed earlier, whose object id PHP reused
+
 ## 1.0.0 - 2026-10-30
 
 ### Added

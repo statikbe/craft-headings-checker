@@ -1,7 +1,8 @@
 # Headings Checker
 
 Screen readers and search engines read a page by its headings, so the levels may not skip one: an h2 followed by an h4
-leaves out the h3. Headings Checker checks the heading order of your content builders (Matrix fields) in Craft CMS 5:
+leaves out the h3. Headings Checker checks the heading order of your content builders (Matrix fields), and of rich text
+fields directly on an entry, in Craft CMS 5:
 
 - **When an entry is published**: block the save, or warn, when a heading in the content skips a level. With `'block'` the
   error is shown where the problem is, as for Craft's own errors: on the row, the block or column, and its field.
@@ -39,6 +40,7 @@ it reads itself.
 | The title of a block or column | h2 | `titleFields`: e.g. `blockTitle` |
 | Cards of a block or column (an overview, a team) | h3 | `cardTypes`: the entry type handles |
 | Headings in rich text fields | the level the editor picked | read from the content, also in nested entries (e.g. FAQ answers) |
+| Headings in rich text fields of the entry itself | the level the editor picked, under the h1 | `textFields`: e.g. `description` |
 
 A heading may go at most one level deeper than the heading above it, counting the titles, and only the page has an h1. Blocks
 and columns are read in order; disabled ones are skipped, as are fields that a field layout condition hides.
@@ -67,6 +69,13 @@ return [
     'titleFields' => [
         '*' => ['blockTitle'],
         'textTwoColumns' => ['titleColumn1', 'titleColumn2'],
+    ],
+
+    // Rich text fields of the entry itself, outside a content builder, that the templates render under the h1 (before the
+    // content builders): their headings start at h2. Also for entries without a content builder. One list for every entry
+    // type, or per entry type handle with '*' for the rest.
+    'textFields' => [
+        'registration' => ['description'],
     ],
 
     // A lightswitch next to the title: off, the templates show the title to screen readers only (it's still an h2).
@@ -99,6 +108,12 @@ return [
 
 Every block is checked as a row with one column: its title fields, its rich text fields and its nested entries. An issue is
 shown on the block's field in the blocks view.
+
+### Text fields of the entry
+
+The rich text fields in `textFields` are read in order, right under the h1, before the content builders: the first heading
+must be an h2. An issue is shown on the field. Entries with text fields but without a content builder are checked as well,
+with the outline in their sidebar.
 
 ### Trinity rows
 

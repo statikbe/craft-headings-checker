@@ -42,17 +42,21 @@ class Checker extends Component
         }
 
         $outline = HeadingsChecker::getInstance()->getOutline();
+        $text = $outline->textOutline($entry);
+        $warnings = $text['issues'];
+        if ($mode === 'block') {
+            foreach ($text['fields'] as $i => $field) {
+                $entry->addError($field, $text['issues'][$i]);
+            }
+        }
+
         foreach ($outline->builderFields($entry) as $field) {
             $result = $outline->outline($entry, $field);
             if (!$result['issues']) {
                 continue;
             }
             if ($mode === 'warn') {
-                if (!$entry->hasErrors()) {
-                    Craft::$app->getSession()->setError(Craft::t('headings-checker', 'Check the heading levels: {issues}', [
-                        'issues' => implode(' ', $result['issues']),
-                    ]));
-                }
+                array_push($warnings, ...$result['issues']);
                 continue;
             }
 
@@ -66,6 +70,12 @@ class Checker extends Component
             foreach ($result['places'] as $i => $place) {
                 $this->addIssueError($entry, $field, $place, $result['issues'][$i]);
             }
+        }
+
+        if ($mode === 'warn' && $warnings && !$entry->hasErrors()) {
+            Craft::$app->getSession()->setError(Craft::t('headings-checker', 'Check the heading levels: {issues}', [
+                'issues' => implode(' ', $warnings),
+            ]));
         }
     }
 

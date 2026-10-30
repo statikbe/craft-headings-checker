@@ -18,6 +18,7 @@ use statikbe\trinity\Trinity;
  * The heading outline of a page: what the templates render (settings) plus the headings in the rich text fields.
  *
  * - The page's h1: settings → pageTitle, or the entry title.
+ * - Rich text fields of the page itself (settings → textFields): under the h1, before the content builders.
  * - A title field of a block or column (settings → titleFields): an h2, also when "Show title" is off (then the templates
  *   render it for screen readers only).
  * - Cards (settings → cardTypes): h3.
@@ -35,11 +36,21 @@ class Outline extends Component
     /** Cache key of the report's version: raise it when the outline rules change, so the report is rebuilt */
     public const VERSION = 1;
 
-    /** @var array<string, array<string, mixed>> outline per page object and field */
-    private array $outlines = [];
+    /**
+     * @var \WeakMap<ElementInterface, array<string, array<string, mixed>>> outline per page object and field. A WeakMap, not
+     * spl_object_id(): PHP reuses the id of a freed object, so another page could get its outline.
+     */
+    private \WeakMap $outlines;
 
-    /** @var array<int, string[]> visible custom field handles per element object (without Trinity) */
-    private array $visibleFields = [];
+    /** @var \WeakMap<Entry, array<string|null>> visible custom field handles per element object (without Trinity) */
+    private \WeakMap $visibleFields;
+
+    public function init(): void
+    {
+        parent::init();
+        $this->outlines = new \WeakMap();
+        $this->visibleFields = new \WeakMap();
+    }
 
     /**
      * The hidden h2 above a row or block, or null when it doesn't need one.
@@ -47,9 +58,10 @@ class Outline extends Component
     public function rowHeading(ElementInterface $page, Entry $row, ?string $field = null): ?string
     {
         $field ??= $row->fieldId !== null ? $row->getField()->handle : ($this->settings()->fields[0] ?? '');
-        $key = spl_object_id($page) . '-' . $field;
-        $this->outlines[$key] ??= $this->outline($page, $field);
-        return $this->outlines[$key]['rowHeadings'][$this->rowKey($row)] ?? null;
+        $outlines = $this->outlines[$page] ?? [];
+        $outlines[$field] ??= $this->outline($page, $field);
+        $this->outlines[$page] = $outlines;
+        return $outlines[$field]['rowHeadings'][$this->rowKey($row)] ?? null;
     }
 
     /**
@@ -79,17 +91,31 @@ class Outline extends Component
     }
 
     /**
-     * The heading issues of a page, every content builder, or null when it has none.
+     * The rich text fields of the page itself (settings → textFields) in the entry's field layout.
+     *
+     * @return string[]
+     */
+    public function textFields(Entry $entry): array
+    {
+        $layout = $entry->getFieldLayout();
+        return array_values(array_filter(
+            $this->settings()->textFieldsFor($entry->getType()->handle),
+            fn(string $field) => $layout?->getFieldByHandle($field) instanceof HtmlField,
+        ));
+    }
+
+    /**
+     * The heading issues of a page, its text fields and every content builder, or null when it has neither.
      *
      * @return string[]|null
      */
     public function issues(Entry $entry): ?array
     {
         $fields = $this->builderFields($entry);
-        if (!$fields) {
+        if (!$fields && !$this->textFields($entry)) {
             return null;
         }
-        $issues = [];
+        $issues = $this->textOutline($entry)['issues'];
         foreach ($fields as $field) {
             array_push($issues, ...$this->outline($entry, $field)['issues']);
         }
@@ -97,14 +123,15 @@ class Outline extends Component
     }
 
     /**
-     * Every heading of a page in order: the h1, then the headings of each content builder. Null without a content builder.
+     * Every heading of a page in order: the h1, the headings of its text fields, then those of each content builder. Null
+     * without text fields and content builders.
      *
      * @return array<array{level: int, text: string, kind: string, hidden: bool, issue: bool, row: int}>|null
      */
     public function pageTree(Entry $entry): ?array
     {
         $fields = $this->builderFields($entry);
-        if (!$fields) {
+        if (!$fields && !$this->textFields($entry)) {
             return null;
         }
         $tree = [[
@@ -115,10 +142,40 @@ class Outline extends Component
             'issue' => false,
             'row' => 0,
         ]];
+        array_push($tree, ...$this->textOutline($entry)['tree']);
         foreach ($fields as $field) {
             array_push($tree, ...$this->outline($entry, $field)['tree']);
         }
         return $tree;
+    }
+
+    /**
+     * The heading outline of the page's text fields (settings → textFields), under the h1:
+     * - issues: the headings that skip a level, as messages for the editor;
+     * - fields: per issue (same order) the field it's in;
+     * - tree: every heading in page order.
+     *
+     * @return array{issues: string[], fields: string[], tree: array<array{level: int, text: string, kind: string, hidden: bool, issue: bool, row: int}>}
+     */
+    public function textOutline(Entry $page): array
+    {
+        $result = ['issues' => [], 'fields' => [], 'tree' => []];
+        $level = 1;
+        foreach ($this->textFields($page) as $field) {
+            if (!$this->layoutShowsField($page, $field)) {
+                continue;
+            }
+            foreach (self::htmlHeadings((string)$page->getFieldValue($field)) as $heading) {
+                $issue = $heading['level'] > $level + 1 || $heading['level'] === 1;
+                if ($issue) {
+                    $result['issues'][] = $this->textIssueMessage($page, $field, $heading, $level);
+                    $result['fields'][] = $field;
+                }
+                $result['tree'][] = ['level' => $heading['level'], 'text' => $heading['text'], 'kind' => 'text', 'hidden' => false, 'issue' => $issue, 'row' => 0];
+                $level = $heading['level'];
+            }
+        }
+        return $result;
     }
 
     /**
@@ -410,6 +467,22 @@ class Outline extends Component
     }
 
     /**
+     * An issue in a text field of the page: the heading above it is the h1 or a heading of the text.
+     *
+     * @param array{level: int, text: string} $heading
+     */
+    private function textIssueMessage(Entry $page, string $field, array $heading, int $level): string
+    {
+        $label = $page->getFieldLayout()?->getField($field)->label() ?? $field;
+        $where = Craft::t('headings-checker', 'Field “{field}”', ['field' => Craft::t('site', $label)]);
+        $params = ['text' => $heading['text'], 'level' => $heading['level'], 'above' => $level, 'next' => $level + 1];
+        $problem = $heading['level'] === 1
+            ? Craft::t('headings-checker', 'the heading “{text}” is an H1, but the page title is the only H1.', $params)
+            : Craft::t('headings-checker', 'the heading “{text}” is an H{level}, but the heading above it is an H{above}. Make it an H{next}.', $params);
+        return $where . ': ' . $problem;
+    }
+
+    /**
      * Whether a field of a block or column is shown: Trinity's check (it knows the column conditions), or the field layout's
      * conditions.
      */
@@ -419,12 +492,19 @@ class Outline extends Component
         if ($rows !== null) {
             return $rows->showsField($element, $handle);
         }
-        $key = spl_object_id($element);
-        $this->visibleFields[$key] ??= array_map(
+        return $this->layoutShowsField($element, $handle);
+    }
+
+    /**
+     * Whether the field layout's conditions show a field of an element.
+     */
+    private function layoutShowsField(Entry $element, string $handle): bool
+    {
+        $this->visibleFields[$element] ??= array_map(
             fn($field) => $field->handle,
             $element->getFieldLayout()?->getVisibleCustomFields($element) ?? [],
         );
-        return in_array($handle, $this->visibleFields[$key], true);
+        return in_array($handle, $this->visibleFields[$element], true);
     }
 
     /**

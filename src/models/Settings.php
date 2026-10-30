@@ -35,6 +35,13 @@ class Settings extends Model
     public array $titleFields = ['blockTitle'];
 
     /**
+     * @var array<string, string[]>|string[] Rich text fields of the page itself, outside a content builder, that the templates
+     * render under the h1, before the content builders: their headings start at h2. Also checked on pages without a content
+     * builder. A list for every entry type, or per entry type handle with '*' for the rest: ['registration' => ['description']].
+     */
+    public array $textFields = [];
+
+    /**
      * @var string|null A lightswitch next to the title: off, the templates render the title for screen readers only. Still an
      * h2 in the outline, marked hidden. Null: titles are always shown.
      */
@@ -69,7 +76,7 @@ class Settings extends Model
     protected function defineRules(): array
     {
         return [
-            [['fields', 'titleFields', 'cardTypes', 'rowHeadings'], 'safe'],
+            [['fields', 'titleFields', 'textFields', 'cardTypes', 'rowHeadings'], 'safe'],
             [['outline', 'levelBadges'], 'boolean'],
         ];
     }
@@ -81,10 +88,17 @@ class Settings extends Model
      */
     public function titleFieldsFor(string $entryType): array
     {
-        if (array_is_list($this->titleFields)) {
-            return $this->titleFields;
-        }
-        return $this->titleFields[$entryType] ?? $this->titleFields['*'] ?? [];
+        return $this->forEntryType($this->titleFields, $entryType);
+    }
+
+    /**
+     * The rich text fields of a page of an entry type, outside its content builders.
+     *
+     * @return string[]
+     */
+    public function textFieldsFor(string $entryType): array
+    {
+        return $this->forEntryType($this->textFields, $entryType);
     }
 
     /**
@@ -95,5 +109,19 @@ class Settings extends Model
     public function pageTitlePaths(): array
     {
         return array_values(array_filter((array)$this->pageTitle));
+    }
+
+    /**
+     * A list for every entry type, or the entry type's own list, else the one for '*'.
+     *
+     * @param array<string, string[]>|string[] $setting
+     * @return string[]
+     */
+    private function forEntryType(array $setting, string $entryType): array
+    {
+        if (array_is_list($setting)) {
+            return $setting;
+        }
+        return $setting[$entryType] ?? $setting['*'] ?? [];
     }
 }

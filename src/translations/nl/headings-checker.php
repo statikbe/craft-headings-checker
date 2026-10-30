@@ -23,4 +23,5 @@ return [
     'the heading “{text}” is an H{level}, but there is no H2 above it. Give this block a title.' => 'de kop “{text}” is een H{level}, maar er staat geen H2 boven. Geef dit blok een titel.',
     'the heading “{text}” is an H{level}, but there is no H2 above it. Add a title above it.' => 'de kop “{text}” is een H{level}, maar er staat geen H2 boven. Voeg er een titel boven toe.',
     'Switch off “{label}” to only show the title to screen readers.' => 'Zet “{label}” uit om de titel alleen aan schermlezers te tonen.',
+    'Field “{field}”' => 'Veld “{field}”',
 ];

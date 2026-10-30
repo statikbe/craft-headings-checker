@@ -118,6 +118,7 @@ class Report extends Component
         $hash = md5((string)json_encode([
             $settings->fields,
             $settings->titleFields,
+            $settings->textFields,
             $settings->cardTypes,
             array_keys($settings->rowHeadings),
             $settings->showTitleField,

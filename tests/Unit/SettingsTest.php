@@ -23,3 +23,10 @@ it('takes one or more page title paths', function() {
         ->and((new Settings(['pageTitle' => ['hero.heading', 'pageTitle']]))->pageTitlePaths())->toBe(['hero.heading', 'pageTitle'])
         ->and((new Settings())->pageTitlePaths())->toBe([]);
 });
+
+it('uses the text fields of the entry type, else the ones for every type', function() {
+    $settings = new Settings(['textFields' => ['*' => ['intro'], 'registration' => ['description']]]);
+    expect($settings->textFieldsFor('registration'))->toBe(['description'])
+        ->and($settings->textFieldsFor('page'))->toBe(['intro'])
+        ->and((new Settings())->textFieldsFor('page'))->toBe([]);
+});
