@@ -1,5 +1,10 @@
 # Release Notes for Headings Checker
 
+## 1.1.1 - 2026-10-30
+
+### Changed
+- The Heading issues widget only lists the pages in sections the user may edit (an admin still sees every page)
+
 ## 1.1.0 - 2026-10-30
 
 ### Added

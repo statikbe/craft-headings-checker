@@ -8,7 +8,8 @@ fields directly on an entry, in Craft CMS 5:
   error is shown where the problem is, as for Craft's own errors: on the row, the block or column, and its field.
 - **Heading outline** in the entry sidebar: every heading of the page in order, indented by level, with hidden headings and
   skipped levels marked. Collapsible (the browser remembers it) and reloaded after every autosave.
-- **Heading issues** dashboard widget: the pages with issues, with a link to edit each one.
+- **Heading issues** dashboard widget: the pages with issues, with a link to edit each one. Each user only sees the pages
+  they may edit.
 - **`craft headings-checker/check`**: lists the entries with issues, e.g. before you switch to `'block'` on a site with
   existing content.
 - **Level badges** in rich text fields (CKEditor, Redactor): H2, H3, … in front of every heading, so editors see the level
