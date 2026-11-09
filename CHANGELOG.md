@@ -1,5 +1,10 @@
 # Release Notes for Headings Checker
 
+## 1.3.1 - 2026-11-09
+
+### Changed
+- Dutch: cards are "kaartjes" in the outline (`Kaartjes: {type}`) and in the messages about cards without an H2
+
 ## 1.3.0 - 2026-10-31
 
 > [!IMPORTANT]
